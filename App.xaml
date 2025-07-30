@@ -4,6 +4,215 @@
              xmlns:local="clr-namespace:Serial_Port_Assistant"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-         
+        <!-- 全局样式和资源 -->
+        <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        
+        <!-- 颜色定义 -->
+        <SolidColorBrush x:Key="PrimaryBrush" Color="#FF0078D4"/>
+        <SolidColorBrush x:Key="SecondaryBrush" Color="#FF106EBE"/>
+        <SolidColorBrush x:Key="AccentBrush" Color="#FF00BCF2"/>
+        <SolidColorBrush x:Key="BackgroundBrush" Color="#FFF3F3F3"/>
+        <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFFFF"/>
+        <SolidColorBrush x:Key="BorderBrush" Color="#FFE0E0E0"/>
+        <SolidColorBrush x:Key="TextBrush" Color="#FF323130"/>
+        <SolidColorBrush x:Key="SecondaryTextBrush" Color="#FF605E5C"/>
+        <SolidColorBrush x:Key="SuccessBrush" Color="#FF107C10"/>
+        <SolidColorBrush x:Key="WarningBrush" Color="#FFFF8C00"/>
+        <SolidColorBrush x:Key="ErrorBrush" Color="#FFD13438"/>
+
+        <!-- 字体大小 -->
+        <system:Double x:Key="SmallFontSize" xmlns:system="clr-namespace:System;assembly=mscorlib">12</system:Double>
+        <system:Double x:Key="NormalFontSize" xmlns:system="clr-namespace:System;assembly=mscorlib">14</system:Double>
+        <system:Double x:Key="LargeFontSize" xmlns:system="clr-namespace:System;assembly=mscorlib">16</system:Double>
+        <system:Double x:Key="HeaderFontSize" xmlns:system="clr-namespace:System;assembly=mscorlib">18</system:Double>
+
+        <!-- 间距定义 -->
+        <Thickness x:Key="SmallMargin">4</Thickness>
+        <Thickness x:Key="NormalMargin">8</Thickness>
+        <Thickness x:Key="LargeMargin">16</Thickness>
+        <Thickness x:Key="SmallPadding">4</Thickness>
+        <Thickness x:Key="NormalPadding">8</Thickness>
+        <Thickness x:Key="LargePadding">16</Thickness>
+
+        <!-- 按钮样式 -->
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource PrimaryBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="{StaticResource NormalPadding}"/>
+            <Setter Property="Margin" Value="{StaticResource SmallMargin}"/>
+            <Setter Property="FontSize" Value="{StaticResource NormalFontSize}"/>
+            <Setter Property="MinWidth" Value="80"/>
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="4"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                BorderBrush="{TemplateBinding BorderBrush}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{StaticResource SecondaryBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="{StaticResource SecondaryBrush}"/>
+                                <Setter Property="RenderTransform">
+                                    <Setter.Value>
+                                        <ScaleTransform ScaleX="0.98" ScaleY="0.98"/>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Background" Value="#FFCCCCCC"/>
+                                <Setter Property="Foreground" Value="#FF888888"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 次要按钮样式 -->
+        <Style x:Key="SecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}"/>
+        </Style>
+
+        <!-- 文本框样式 -->
+        <Style x:Key="ModernTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="{StaticResource SmallPadding}"/>
+            <Setter Property="Margin" Value="{StaticResource SmallMargin}"/>
+            <Setter Property="FontSize" Value="{StaticResource NormalFontSize}"/>
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                        Margin="{TemplateBinding Padding}"
+                                        VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}"/>
+                                <Setter Property="BorderThickness" Value="2"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 下拉框样式 -->
+        <Style x:Key="ModernComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="{StaticResource SmallPadding}"/>
+            <Setter Property="Margin" Value="{StaticResource SmallMargin}"/>
+            <Setter Property="FontSize" Value="{StaticResource NormalFontSize}"/>
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <!-- 标签样式 -->
+        <Style x:Key="HeaderLabelStyle" TargetType="Label">
+            <Setter Property="FontSize" Value="{StaticResource HeaderFontSize}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+            <Setter Property="Margin" Value="{StaticResource SmallMargin}"/>
+        </Style>
+
+        <Style x:Key="NormalLabelStyle" TargetType="Label">
+            <Setter Property="FontSize" Value="{StaticResource NormalFontSize}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+            <Setter Property="Margin" Value="{StaticResource SmallMargin}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- GroupBox 样式 -->
+        <Style x:Key="ModernGroupBoxStyle" TargetType="GroupBox">
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Margin" Value="{StaticResource SmallMargin}"/>
+            <Setter Property="Padding" Value="{StaticResource NormalPadding}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GroupBox">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <Border Grid.Row="0" 
+                                    Background="{StaticResource BackgroundBrush}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="1,1,1,0"
+                                    CornerRadius="4,4,0,0"
+                                    Padding="8,4">
+                                <ContentPresenter ContentSource="Header"
+                                                TextBlock.FontWeight="{TemplateBinding FontWeight}"/>
+                            </Border>
+                            <Border Grid.Row="1"
+                                    Background="{StaticResource SurfaceBrush}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="1,0,1,1"
+                                    CornerRadius="0,0,4,4"
+                                    Padding="{TemplateBinding Padding}">
+                                <ContentPresenter/>
+                            </Border>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- CheckBox 样式 -->
+        <Style x:Key="ModernCheckBoxStyle" TargetType="CheckBox">
+            <Setter Property="FontSize" Value="{StaticResource NormalFontSize}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+            <Setter Property="Margin" Value="{StaticResource SmallMargin}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- 状态栏样式 -->
+        <Style x:Key="StatusBarStyle" TargetType="StatusBar">
+            <Setter Property="Background" Value="{StaticResource BackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="0,1,0,0"/>
+            <Setter Property="Height" Value="24"/>
+        </Style>
+
+        <!-- 工具栏样式 -->
+        <Style x:Key="ToolBarStyle" TargetType="ToolBar">
+            <Setter Property="Background" Value="{StaticResource BackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+        </Style>
+
+        <!-- 默认样式应用 -->
+        <Style TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}"/>
+        <Style TargetType="TextBox" BasedOn="{StaticResource ModernTextBoxStyle}"/>
+        <Style TargetType="ComboBox" BasedOn="{StaticResource ModernComboBoxStyle}"/>
+        <Style TargetType="Label" BasedOn="{StaticResource NormalLabelStyle}"/>
+        <Style TargetType="GroupBox" BasedOn="{StaticResource ModernGroupBoxStyle}"/>
+        <Style TargetType="CheckBox" BasedOn="{StaticResource ModernCheckBoxStyle}"/>
+        <Style TargetType="StatusBar" BasedOn="{StaticResource StatusBarStyle}"/>
+        
     </Application.Resources>
 </Application>
