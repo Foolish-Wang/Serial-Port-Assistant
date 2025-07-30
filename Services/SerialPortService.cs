@@ -147,8 +147,8 @@ namespace Serial_Port_Assistant.Services
             catch (Exception ex)
             {
                 ErrorOccurred?.Invoke(this, $"发送文本数据失败: {ex.Message}");
-                // 修复：重新抛出异常，让调用方知道发生了严重错误
-                throw; 
+                // 回退：不再抛出异常，仅返回 false
+                return false;
             }
         }
 
@@ -169,8 +169,8 @@ namespace Serial_Port_Assistant.Services
             catch (Exception ex)
             {
                 ErrorOccurred?.Invoke(this, $"发送十六进制数据失败: {ex.Message}");
-                // 修复：重新抛出异常
-                throw;
+                // 回退：不再抛出异常，仅返回 false
+                return false;
             }
         }
 

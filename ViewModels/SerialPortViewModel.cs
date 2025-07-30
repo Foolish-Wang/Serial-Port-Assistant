@@ -18,12 +18,10 @@ namespace Serial_Port_Assistant.ViewModels
     {
         #region 私有字段
         private readonly SerialPortService _serialPortService;
-        private readonly Action<string, string> _showErrorAction;
+        // 回退：移除弹窗委托字段
+        // private readonly Action<string, string> _showErrorAction;
         private SerialPortConfig _config;
-        
-        // 修改：存储数据块列表，而不是连续的字节列表
         private readonly List<byte[]> _receivedChunks = new List<byte[]>();
-        
         private string _sendData = string.Empty;
         private bool _isConnected = false;
         private bool _isHexMode = false;
@@ -33,11 +31,9 @@ namespace Serial_Port_Assistant.ViewModels
         #endregion
 
         #region 构造函数
-        public SerialPortViewModel(Action<string, string> showErrorAction)
+        // 回退：构造函数不再接收参数
+        public SerialPortViewModel()
         {
-            // 修复：保存传入的弹窗委托
-            _showErrorAction = showErrorAction; 
-            
             _serialPortService = new SerialPortService();
             _config = new SerialPortConfig();
             
@@ -50,8 +46,8 @@ namespace Serial_Port_Assistant.ViewModels
             ConnectCommand = new RelayCommand(async () => await ConnectAsync(), () => !string.IsNullOrEmpty(Config.PortName));
             DisconnectCommand = new RelayCommand(async () => await DisconnectAsync(), () => IsConnected);
             
-            // 修改：移除 IsConnected 的检查，让发送按钮始终由 SendData 是否为空决定
-            SendCommand = new RelayCommand(async () => await SendDataAsync(), () => !string.IsNullOrEmpty(SendData));
+            // 回退：恢复 SendCommand 的原始 CanExecute 逻辑
+            SendCommand = new RelayCommand(async () => await SendDataAsync(), () => IsConnected && !string.IsNullOrEmpty(SendData));
             
             ClearReceiveCommand = new RelayCommand(ClearReceiveData);
             ClearSendCommand = new RelayCommand(ClearSendData);
@@ -286,46 +282,58 @@ namespace Serial_Port_Assistant.ViewModels
         /// </summary>
         private async Task SendDataAsync()
         {
-            // 新增：在方法开头检查连接状态
-            if (!IsConnected)
-            {
-                _showErrorAction?.Invoke("串口未连接，无法发送数据。", "操作失败");
-                return;
-            }
-
             if (string.IsNullOrEmpty(SendData)) return;
+
+            bool success;
+            byte[] dataToSend;
+
+            // 增加对十六进制格式的输入验证
             try
             {
-                bool success;
-                byte[] dataToSend;
                 if (IsHexMode)
                 {
                     dataToSend = HexConverter.HexToBytes(SendData);
-                    success = await _serialPortService.SendHexAsync(SendData);
                 }
                 else
                 {
                     dataToSend = Encoding.UTF8.GetBytes(SendData);
-                    success = await _serialPortService.SendTextAsync(SendData);
                 }
-
-                if (success)
-                {
-                    SentCount += dataToSend.Length;
-                    StatusMessage = $"发送成功: {dataToSend.Length} 字节";
-                }
-                // 这里的 else 分支现在可以移除了，因为失败会通过异常处理
             }
             catch (Exception ex)
             {
-                string errorMsg = $"发送错误: {ex.Message}";
-                StatusMessage = errorMsg;
-                _showErrorAction?.Invoke(errorMsg, "发送失败");
+                StatusMessage = $"输入格式错误: {ex.Message}";
+                return;
+            }
 
-                // 修复：发生 I/O 错误时，认为连接已失效，自动断开
+            // 调用服务发送数据
+            if (IsHexMode)
+            {
+                success = await _serialPortService.SendHexAsync(SendData);
+            }
+            else
+            {
+                success = await _serialPortService.SendTextAsync(SendData);
+            }
+
+            // 修复：明确处理成功和失败两种情况
+            if (success)
+            {
+                SentCount += dataToSend.Length;
+                StatusMessage = $"发送成功: {dataToSend.Length} 字节";
+            }
+            else
+            {
+                // 当 success 为 false 时，说明服务层发生了 IO 错误。
+                // 此时 ErrorOccurred 事件可能已经设置了一个详细的错误信息。
+                // 我们在这里设置一个更明确的最终状态，并处理后果。
+                StatusMessage = "发送失败";
+
+                // 关键：发送失败意味着连接已失效，需要自动断开并更新UI
                 if (IsConnected)
                 {
                     await DisconnectAsync();
+                    // 覆盖 DisconnectAsync 设置的 "已断开连接" 消消息，给出更具体的失败原因
+                    StatusMessage = "发送失败，连接已断开";
                 }
             }
         }
@@ -435,9 +443,8 @@ namespace Serial_Port_Assistant.ViewModels
         {
             System.Windows.Application.Current.Dispatcher.Invoke(() =>
             {
+                // 回退：只更新状态栏消息，不再调用弹窗
                 StatusMessage = error;
-                // 修复：现在 _showErrorAction 不为 null，可以正常调用
-                _showErrorAction?.Invoke(error, "串口错误");
             });
         }
         #endregion
