@@ -136,13 +136,13 @@ namespace Serial_Port_Assistant.ViewModels
         #endregion
 
         #region 命令
-        public ICommand MinimizeWindowCommand { get; private set; }
-        public ICommand MaximizeWindowCommand { get; private set; }
-        public ICommand CloseWindowCommand { get; private set; }
-        public ICommand ShowAboutCommand { get; private set; }
-        public ICommand ExitApplicationCommand { get; private set; }
-        public ICommand WindowLoadedCommand { get; private set; }
-        public ICommand WindowClosingCommand { get; private set; }
+        public ICommand MinimizeWindowCommand { get; private set; } = null!;
+        public ICommand MaximizeWindowCommand { get; private set; } = null!;
+        public ICommand CloseWindowCommand { get; private set; } = null!;
+        public ICommand ShowAboutCommand { get; private set; } = null!;
+        public ICommand ExitApplicationCommand { get; private set; } = null!;
+        public ICommand WindowLoadedCommand { get; private set; } = null!;
+        public ICommand WindowClosingCommand { get; private set; } = null!;
         #endregion
 
         #region 私有方法

@@ -2,10 +2,11 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:Serial_Port_Assistant"
+             xmlns:converters="clr-namespace:Serial_Port_Assistant.Converters"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
         <!-- 全局样式和资源 -->
-        <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         
         <!-- 颜色定义 -->
         <SolidColorBrush x:Key="PrimaryBrush" Color="#FF0078D4"/>
