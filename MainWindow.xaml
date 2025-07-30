@@ -164,7 +164,8 @@
                              VerticalScrollBarVisibility="Auto"
                              HorizontalScrollBarVisibility="Auto"
                              Margin="{StaticResource SmallMargin}"
-                             behaviors:AutoScrollBehavior.AutoScroll="True"/> <!-- 修改这里的 "local:" 为 "behaviors:" -->
+                             behaviors:AutoScrollBehavior.AutoScroll="True"
+                             VerticalContentAlignment="Top"/> <!-- 新增：使内容从顶部开始 -->
 
                     <!-- 接收控制按钮 -->
                     <StackPanel Grid.Row="2" Orientation="Horizontal" 

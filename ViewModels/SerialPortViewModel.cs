@@ -1,9 +1,9 @@
 using System;
-using System.Collections.Generic; // 新增
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO.Ports;
-using System.Linq; // 新增
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -18,11 +18,11 @@ namespace Serial_Port_Assistant.ViewModels
     {
         #region 私有字段
         private readonly SerialPortService _serialPortService;
-        private readonly Action<string, string> _showErrorAction; // 新增：用于显示错误弹窗的委托
+        private readonly Action<string, string> _showErrorAction;
         private SerialPortConfig _config;
         
-        // 修改：使用字节列表存储原始数据，不再使用字符串
-        private readonly List<byte> _receivedBytes = new List<byte>();
+        // 修改：存储数据块列表，而不是连续的字节列表
+        private readonly List<byte[]> _receivedChunks = new List<byte[]>();
         
         private string _sendData = string.Empty;
         private bool _isConnected = false;
@@ -33,22 +33,20 @@ namespace Serial_Port_Assistant.ViewModels
         #endregion
 
         #region 构造函数
-        // 修改：构造函数接收一个 Action 用于弹窗
         public SerialPortViewModel(Action<string, string> showErrorAction)
         {
-            _showErrorAction = showErrorAction; // 保存委托
+            // 修复：保存传入的弹窗委托
+            _showErrorAction = showErrorAction; 
+            
             _serialPortService = new SerialPortService();
             _config = new SerialPortConfig();
             
-            // 初始化可用串口列表
             RefreshPortList();
             
-            // 订阅服务事件
             _serialPortService.DataReceived += OnDataReceived;
             _serialPortService.ConnectionStatusChanged += OnConnectionStatusChanged;
             _serialPortService.ErrorOccurred += OnErrorOccurred;
             
-            // 初始化命令
             ConnectCommand = new RelayCommand(async () => await ConnectAsync(), () => !string.IsNullOrEmpty(Config.PortName));
             DisconnectCommand = new RelayCommand(async () => await DisconnectAsync(), () => IsConnected);
             SendCommand = new RelayCommand(async () => await SendDataAsync(), () => IsConnected && !string.IsNullOrEmpty(SendData));
@@ -118,19 +116,19 @@ namespace Serial_Port_Assistant.ViewModels
             // 修改：动态生成显示内容
             get
             {
-                if (_receivedBytes.Count == 0)
+                if (_receivedChunks.Count == 0)
                     return string.Empty;
 
-                if (IsReceiveHexMode)
+                var sb = new StringBuilder();
+                // 修改：遍历每个数据块，并用换行符连接
+                foreach (var chunk in _receivedChunks)
                 {
-                    // 十六进制显示
-                    return HexConverter.BytesToHex(_receivedBytes.ToArray(), " ");
+                    string line = IsReceiveHexMode
+                        ? HexConverter.BytesToHex(chunk, " ")
+                        : Encoding.UTF8.GetString(chunk);
+                    sb.AppendLine(line);
                 }
-                else
-                {
-                    // 文本显示
-                    return Encoding.UTF8.GetString(_receivedBytes.ToArray());
-                }
+                return sb.ToString();
             }
         }
 
@@ -211,7 +209,7 @@ namespace Serial_Port_Assistant.ViewModels
         /// <summary>
         /// 接收字节计数
         /// </summary>
-        public int ReceivedCount => _receivedBytes.Count; // 修改：直接返回列表计数
+        public int ReceivedCount => _receivedChunks.Sum(chunk => chunk.Length); // 修改：直接返回列表计数
 
         /// <summary>
         /// 发送字节计数
@@ -285,48 +283,37 @@ namespace Serial_Port_Assistant.ViewModels
         /// </summary>
         private async Task SendDataAsync()
         {
-            if (string.IsNullOrEmpty(SendData))
-                return;
-
+            if (string.IsNullOrEmpty(SendData)) return;
             try
             {
                 bool success;
-                int byteCount = 0;
-
+                byte[] dataToSend;
                 if (IsHexMode)
                 {
-                    // 十六进制模式发送
+                    dataToSend = HexConverter.HexToBytes(SendData);
                     success = await _serialPortService.SendHexAsync(SendData);
-                    if (success)
-                    {
-                        byteCount = HexConverter.GetByteCount(SendData);
-                    }
                 }
                 else
                 {
-                    // 文本模式发送
+                    dataToSend = Encoding.UTF8.GetBytes(SendData);
                     success = await _serialPortService.SendTextAsync(SendData);
-                    if (success)
-                    {
-                        byteCount = Encoding.UTF8.GetByteCount(SendData);
-                    }
                 }
 
                 if (success)
                 {
-                    SentCount += byteCount;
-                    StatusMessage = $"发送成功，{byteCount} 字节";
+                    SentCount += dataToSend.Length;
+                    StatusMessage = $"发送成功: {dataToSend.Length} 字节";
                 }
                 else
                 {
-                    StatusMessage = "发送失败";
+                    // 失败信息已由 OnErrorOccurred 处理
                 }
             }
             catch (Exception ex)
             {
                 string errorMsg = $"发送错误: {ex.Message}";
                 StatusMessage = errorMsg;
-                // 修改：调用弹窗方法
+                // 修复：现在 _showErrorAction 不为 null，可以正常调用
                 _showErrorAction?.Invoke(errorMsg, "发送失败");
             }
         }
@@ -336,13 +323,14 @@ namespace Serial_Port_Assistant.ViewModels
         /// </summary>
         private void ClearReceiveData()
         {
-            _receivedBytes.Clear();
+            // 修改：清空数据块列表
+            _receivedChunks.Clear();
             OnPropertyChanged(nameof(ReceivedData));
             OnPropertyChanged(nameof(ReceivedCount));
         }
 
         /// <summary>
-        /// 清空发送数据
+        /// 清空发送数据框
         /// </summary>
         private void ClearSendData()
         {
@@ -383,14 +371,11 @@ namespace Serial_Port_Assistant.ViewModels
         /// </summary>
         private void ResetCounters()
         {
-            // 修改：不能直接给 ReceivedCount 赋值，而是清空其数据源
-            _receivedBytes.Clear();
+            // 修改：清空数据块列表来重置接收计数
+            _receivedChunks.Clear();
             SentCount = 0;
-
-            // 通知 UI 更新相关的属性
             OnPropertyChanged(nameof(ReceivedData));
             OnPropertyChanged(nameof(ReceivedCount));
-            
             StatusMessage = "计数器已重置";
         }
 
@@ -400,16 +385,15 @@ namespace Serial_Port_Assistant.ViewModels
         /// <summary>
         /// 数据接收事件处理
         /// </summary>
-        private void OnDataReceived(object? sender, byte[] data) // 修改：接收原始字节数组
+        private void OnDataReceived(object? sender, byte[] data)
         {
             try
             {
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
-                    // 将接收到的字节添加到列表中
-                    _receivedBytes.AddRange(data);
+                    // 修改：将接收到的数据块作为一个整体添加到列表中
+                    _receivedChunks.Add(data);
 
-                    // 通知UI更新
                     OnPropertyChanged(nameof(ReceivedData));
                     OnPropertyChanged(nameof(ReceivedCount));
                     StatusMessage = $"接收到 {data.Length} 字节";
@@ -417,10 +401,7 @@ namespace Serial_Port_Assistant.ViewModels
             }
             catch (Exception ex)
             {
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                {
-                    StatusMessage = $"数据接收处理错误: {ex.Message}";
-                });
+                StatusMessage = $"处理接收数据时出错: {ex.Message}";
             }
         }
 
@@ -443,7 +424,7 @@ namespace Serial_Port_Assistant.ViewModels
             System.Windows.Application.Current.Dispatcher.Invoke(() =>
             {
                 StatusMessage = error;
-                // 修改：调用弹窗方法
+                // 修复：现在 _showErrorAction 不为 null，可以正常调用
                 _showErrorAction?.Invoke(error, "串口错误");
             });
         }
