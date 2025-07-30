@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic; // 新增
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO.Ports;
+using System.Linq; // 新增
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -16,20 +18,25 @@ namespace Serial_Port_Assistant.ViewModels
     {
         #region 私有字段
         private readonly SerialPortService _serialPortService;
+        private readonly Action<string, string> _showErrorAction; // 新增：用于显示错误弹窗的委托
         private SerialPortConfig _config;
-        private string _receivedData = string.Empty;
+        
+        // 修改：使用字节列表存储原始数据，不再使用字符串
+        private readonly List<byte> _receivedBytes = new List<byte>();
+        
         private string _sendData = string.Empty;
         private bool _isConnected = false;
         private bool _isHexMode = false;
         private bool _isReceiveHexMode = false;
         private string _statusMessage = "就绪";
-        private int _receivedCount = 0;
         private int _sentCount = 0;
         #endregion
 
         #region 构造函数
-        public SerialPortViewModel()
+        // 修改：构造函数接收一个 Action 用于弹窗
+        public SerialPortViewModel(Action<string, string> showErrorAction)
         {
+            _showErrorAction = showErrorAction; // 保存委托
             _serialPortService = new SerialPortService();
             _config = new SerialPortConfig();
             
@@ -104,15 +111,26 @@ namespace Serial_Port_Assistant.ViewModels
         };
 
         /// <summary>
-        /// 接收到的数据
+        /// 接收到的数据 (显示用)
         /// </summary>
         public string ReceivedData
         {
-            get => _receivedData;
-            set
+            // 修改：动态生成显示内容
+            get
             {
-                _receivedData = value;
-                OnPropertyChanged();
+                if (_receivedBytes.Count == 0)
+                    return string.Empty;
+
+                if (IsReceiveHexMode)
+                {
+                    // 十六进制显示
+                    return HexConverter.BytesToHex(_receivedBytes.ToArray(), " ");
+                }
+                else
+                {
+                    // 文本显示
+                    return Encoding.UTF8.GetString(_receivedBytes.ToArray());
+                }
             }
         }
 
@@ -167,10 +185,13 @@ namespace Serial_Port_Assistant.ViewModels
             get => _isReceiveHexMode;
             set
             {
-                _isReceiveHexMode = value;
-                OnPropertyChanged();
-                // 重新格式化已接收的数据
-                FormatReceivedData();
+                if (_isReceiveHexMode != value)
+                {
+                    _isReceiveHexMode = value;
+                    OnPropertyChanged();
+                    // 修改：只需通知UI更新ReceivedData属性即可
+                    OnPropertyChanged(nameof(ReceivedData));
+                }
             }
         }
 
@@ -190,15 +211,7 @@ namespace Serial_Port_Assistant.ViewModels
         /// <summary>
         /// 接收字节计数
         /// </summary>
-        public int ReceivedCount
-        {
-            get => _receivedCount;
-            private set
-            {
-                _receivedCount = value;
-                OnPropertyChanged();
-            }
-        }
+        public int ReceivedCount => _receivedBytes.Count; // 修改：直接返回列表计数
 
         /// <summary>
         /// 发送字节计数
@@ -311,7 +324,10 @@ namespace Serial_Port_Assistant.ViewModels
             }
             catch (Exception ex)
             {
-                StatusMessage = $"发送错误: {ex.Message}";
+                string errorMsg = $"发送错误: {ex.Message}";
+                StatusMessage = errorMsg;
+                // 修改：调用弹窗方法
+                _showErrorAction?.Invoke(errorMsg, "发送失败");
             }
         }
 
@@ -320,8 +336,9 @@ namespace Serial_Port_Assistant.ViewModels
         /// </summary>
         private void ClearReceiveData()
         {
-            ReceivedData = string.Empty;
-            ReceivedCount = 0;
+            _receivedBytes.Clear();
+            OnPropertyChanged(nameof(ReceivedData));
+            OnPropertyChanged(nameof(ReceivedCount));
         }
 
         /// <summary>
@@ -366,49 +383,36 @@ namespace Serial_Port_Assistant.ViewModels
         /// </summary>
         private void ResetCounters()
         {
-            ReceivedCount = 0;
+            // 修改：不能直接给 ReceivedCount 赋值，而是清空其数据源
+            _receivedBytes.Clear();
             SentCount = 0;
+
+            // 通知 UI 更新相关的属性
+            OnPropertyChanged(nameof(ReceivedData));
+            OnPropertyChanged(nameof(ReceivedCount));
+            
             StatusMessage = "计数器已重置";
         }
 
-        /// <summary>
-        /// 格式化接收到的数据显示
-        /// </summary>
-        private void FormatReceivedData()
-        {
-            // 这里可以根据需要重新格式化已接收的数据
-            // 由于数据可能是混合的，这里保持原样
-            // 在实际应用中，可能需要存储原始字节数据来支持格式切换
-        }
         #endregion
 
         #region 事件处理
         /// <summary>
         /// 数据接收事件处理
         /// </summary>
-        private void OnDataReceived(object? sender, string data)
+        private void OnDataReceived(object? sender, byte[] data) // 修改：接收原始字节数组
         {
             try
             {
-                // 在UI线程上更新数据
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
-                    string displayData;
-                    
-                    if (IsReceiveHexMode)
-                    {
-                        // 转换为十六进制显示
-                        byte[] bytes = Encoding.UTF8.GetBytes(data);
-                        displayData = HexConverter.BytesToHex(bytes, " ");
-                    }
-                    else
-                    {
-                        displayData = data;
-                    }
+                    // 将接收到的字节添加到列表中
+                    _receivedBytes.AddRange(data);
 
-                    ReceivedData += displayData;
-                    ReceivedCount += Encoding.UTF8.GetByteCount(data);
-                    StatusMessage = $"接收到数据，{Encoding.UTF8.GetByteCount(data)} 字节";
+                    // 通知UI更新
+                    OnPropertyChanged(nameof(ReceivedData));
+                    OnPropertyChanged(nameof(ReceivedCount));
+                    StatusMessage = $"接收到 {data.Length} 字节";
                 });
             }
             catch (Exception ex)
@@ -439,6 +443,8 @@ namespace Serial_Port_Assistant.ViewModels
             System.Windows.Application.Current.Dispatcher.Invoke(() =>
             {
                 StatusMessage = error;
+                // 修改：调用弹窗方法
+                _showErrorAction?.Invoke(error, "串口错误");
             });
         }
         #endregion

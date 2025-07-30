@@ -4,6 +4,7 @@
         xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
         xmlns:local="clr-namespace:Serial_Port_Assistant"
         xmlns:converters="clr-namespace:Serial_Port_Assistant.Converters"
+        xmlns:behaviors="clr-namespace:Serial_Port_Assistant.Behaviors"
         Title="{Binding FullTitle}" 
         Height="{Binding WindowHeight, Mode=TwoWay}" 
         Width="{Binding WindowWidth, Mode=TwoWay}"
@@ -155,13 +156,15 @@
 
                     <!-- 接收数据显示 -->
                     <TextBox Grid.Row="1"
+                             x:Name="ReceiveTextBox"
                              Text="{Binding SerialPortViewModel.ReceivedData, Mode=OneWay}"
                              IsReadOnly="True"
                              AcceptsReturn="True"
                              TextWrapping="Wrap"
                              VerticalScrollBarVisibility="Auto"
                              HorizontalScrollBarVisibility="Auto"
-                             Margin="{StaticResource SmallMargin}"/>
+                             Margin="{StaticResource SmallMargin}"
+                             behaviors:AutoScrollBehavior.AutoScroll="True"/> <!-- 修改这里的 "local:" 为 "behaviors:" -->
 
                     <!-- 接收控制按钮 -->
                     <StackPanel Grid.Row="2" Orientation="Horizontal" 
@@ -203,4 +206,5 @@
             </StatusBarItem>
         </StatusBar>
     </Grid>
+
 </Window>

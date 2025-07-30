@@ -13,9 +13,9 @@ namespace Serial_Port_Assistant.Services
         private bool _disposed = false;
 
         /// <summary>
-        /// 串口数据接收事件
+        /// 串口数据接收事件 (修改：确保泛型参数是 byte[])
         /// </summary>
-        public event EventHandler<string>? DataReceived;
+        public event EventHandler<byte[]>? DataReceived;
 
         /// <summary>
         /// 串口状态变化事件
@@ -199,15 +199,14 @@ namespace Serial_Port_Assistant.Services
 
             try
             {
-                // 循环读取，确保将缓冲区数据全部读出
                 int bytesToRead = _serialPort.BytesToRead;
                 if (bytesToRead > 0)
                 {
                     byte[] buffer = new byte[bytesToRead];
                     _serialPort.Read(buffer, 0, bytesToRead);
                     
-                    string receivedData = Encoding.GetString(buffer);
-                    DataReceived?.Invoke(this, receivedData);
+                    // 确认这里调用的是传递 byte[] 的事件
+                    DataReceived?.Invoke(this, buffer);
                 }
             }
             catch (Exception ex)

@@ -21,8 +21,8 @@ namespace Serial_Port_Assistant.ViewModels
         #region 构造函数
         public MainViewModel()
         {
-            // 初始化串口 ViewModel
-            SerialPortViewModel = new SerialPortViewModel();
+            // 将 ShowError 方法作为委托传递给 SerialPortViewModel
+            SerialPortViewModel = new SerialPortViewModel(ShowError);
             
             // 初始化命令
             InitializeCommands();
