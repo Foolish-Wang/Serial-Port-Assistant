@@ -133,8 +133,6 @@ namespace Serial_Port_Assistant.Services
         /// <summary>
         /// 发送文本数据
         /// </summary>
-        /// <param name="data">要发送的文本</param>
-        /// <returns>是否发送成功</returns>
         public async Task<bool> SendTextAsync(string data)
         {
             if (string.IsNullOrEmpty(data) || !IsConnected)
@@ -149,15 +147,14 @@ namespace Serial_Port_Assistant.Services
             catch (Exception ex)
             {
                 ErrorOccurred?.Invoke(this, $"发送文本数据失败: {ex.Message}");
-                return false;
+                // 修复：重新抛出异常，让调用方知道发生了严重错误
+                throw; 
             }
         }
 
         /// <summary>
         /// 发送十六进制数据
         /// </summary>
-        /// <param name="hexString">十六进制字符串</param>
-        /// <returns>是否发送成功</returns>
         public async Task<bool> SendHexAsync(string hexString)
         {
             if (string.IsNullOrEmpty(hexString) || !IsConnected)
@@ -165,7 +162,6 @@ namespace Serial_Port_Assistant.Services
 
             try
             {
-                // 使用 HexConverter 工具类进行转换，更健壮
                 byte[] bytes = HexConverter.HexToBytes(hexString);
                 await SendBytesAsync(bytes);
                 return true;
@@ -173,7 +169,8 @@ namespace Serial_Port_Assistant.Services
             catch (Exception ex)
             {
                 ErrorOccurred?.Invoke(this, $"发送十六进制数据失败: {ex.Message}");
-                return false;
+                // 修复：重新抛出异常
+                throw;
             }
         }
 

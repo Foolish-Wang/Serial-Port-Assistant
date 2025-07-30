@@ -304,17 +304,19 @@ namespace Serial_Port_Assistant.ViewModels
                     SentCount += dataToSend.Length;
                     StatusMessage = $"发送成功: {dataToSend.Length} 字节";
                 }
-                else
-                {
-                    // 失败信息已由 OnErrorOccurred 处理
-                }
+                // 这里的 else 分支现在可以移除了，因为失败会通过异常处理
             }
             catch (Exception ex)
             {
                 string errorMsg = $"发送错误: {ex.Message}";
                 StatusMessage = errorMsg;
-                // 修复：现在 _showErrorAction 不为 null，可以正常调用
                 _showErrorAction?.Invoke(errorMsg, "发送失败");
+
+                // 修复：发生 I/O 错误时，认为连接已失效，自动断开
+                if (IsConnected)
+                {
+                    await DisconnectAsync();
+                }
             }
         }
 
