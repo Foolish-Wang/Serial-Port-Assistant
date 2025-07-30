@@ -49,7 +49,10 @@ namespace Serial_Port_Assistant.ViewModels
             
             ConnectCommand = new RelayCommand(async () => await ConnectAsync(), () => !string.IsNullOrEmpty(Config.PortName));
             DisconnectCommand = new RelayCommand(async () => await DisconnectAsync(), () => IsConnected);
-            SendCommand = new RelayCommand(async () => await SendDataAsync(), () => IsConnected && !string.IsNullOrEmpty(SendData));
+            
+            // 修改：移除 IsConnected 的检查，让发送按钮始终由 SendData 是否为空决定
+            SendCommand = new RelayCommand(async () => await SendDataAsync(), () => !string.IsNullOrEmpty(SendData));
+            
             ClearReceiveCommand = new RelayCommand(ClearReceiveData);
             ClearSendCommand = new RelayCommand(ClearSendData);
             RefreshPortsCommand = new RelayCommand(RefreshPortList);
@@ -283,6 +286,13 @@ namespace Serial_Port_Assistant.ViewModels
         /// </summary>
         private async Task SendDataAsync()
         {
+            // 新增：在方法开头检查连接状态
+            if (!IsConnected)
+            {
+                _showErrorAction?.Invoke("串口未连接，无法发送数据。", "操作失败");
+                return;
+            }
+
             if (string.IsNullOrEmpty(SendData)) return;
             try
             {
