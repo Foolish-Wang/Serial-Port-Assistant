@@ -3,6 +3,7 @@ using System.IO.Ports;
 using System.Text;
 using System.Threading.Tasks;
 using Serial_Port_Assistant.Models;
+using Serial_Port_Assistant.Utils;
 
 namespace Serial_Port_Assistant.Services
 {
@@ -32,6 +33,11 @@ namespace Serial_Port_Assistant.Services
         public bool IsConnected => _serialPort?.IsOpen ?? false;
 
         /// <summary>
+        /// 数据编码格式，默认为 UTF-8
+        /// </summary>
+        public Encoding Encoding { get; set; } = Encoding.UTF8;
+
+        /// <summary>
         /// 获取可用的串口列表
         /// </summary>
         /// <returns>串口名称数组</returns>
@@ -55,15 +61,13 @@ namespace Serial_Port_Assistant.Services
         /// <returns>是否成功打开</returns>
         public async Task<bool> OpenPortAsync(SerialPortConfig config)
         {
+            if (IsConnected)
+            {
+                await ClosePortAsync();
+            }
+
             try
             {
-                // 如果已经打开，先关闭
-                if (_serialPort?.IsOpen == true)
-                {
-                    await ClosePortAsync();
-                }
-
-                // 创建新的串口实例
                 _serialPort = new SerialPort
                 {
                     PortName = config.PortName,
@@ -76,24 +80,20 @@ namespace Serial_Port_Assistant.Services
                     WriteTimeout = 1000
                 };
 
-                // 订阅数据接收事件
                 _serialPort.DataReceived += OnDataReceived;
                 _serialPort.ErrorReceived += OnErrorReceived;
 
-                // 打开串口
-                _serialPort.Open();
+                await Task.Run(() => _serialPort.Open());
 
-                // 触发连接状态变化事件
                 ConnectionStatusChanged?.Invoke(this, true);
-
                 return true;
             }
             catch (Exception ex)
             {
-                ErrorOccurred?.Invoke(this, $"打开串口失败: {ex.Message}");
-                _serialPort?.Close();
+                ErrorOccurred?.Invoke(this, $"打开串口 {config.PortName} 失败: {ex.Message}");
                 _serialPort?.Dispose();
                 _serialPort = null;
+                ConnectionStatusChanged?.Invoke(this, false);
                 return false;
             }
         }
@@ -103,30 +103,31 @@ namespace Serial_Port_Assistant.Services
         /// </summary>
         public async Task ClosePortAsync()
         {
+            if (!IsConnected || _serialPort == null)
+            {
+                return;
+            }
+
             try
             {
-                if (_serialPort?.IsOpen == true)
+                _serialPort.DataReceived -= OnDataReceived;
+                _serialPort.ErrorReceived -= OnErrorReceived;
+
+                await Task.Run(() =>
                 {
-                    // 取消事件订阅
-                    _serialPort.DataReceived -= OnDataReceived;
-                    _serialPort.ErrorReceived -= OnErrorReceived;
-
-                    // 关闭串口
                     _serialPort.Close();
-                }
-
-                _serialPort?.Dispose();
-                _serialPort = null;
-
-                // 触发连接状态变化事件
-                ConnectionStatusChanged?.Invoke(this, false);
+                    _serialPort.Dispose();
+                });
             }
             catch (Exception ex)
             {
                 ErrorOccurred?.Invoke(this, $"关闭串口失败: {ex.Message}");
             }
-
-            await Task.CompletedTask;
+            finally
+            {
+                _serialPort = null;
+                ConnectionStatusChanged?.Invoke(this, false);
+            }
         }
 
         /// <summary>
@@ -141,7 +142,7 @@ namespace Serial_Port_Assistant.Services
 
             try
             {
-                byte[] bytes = Encoding.UTF8.GetBytes(data);
+                byte[] bytes = Encoding.GetBytes(data);
                 await SendBytesAsync(bytes);
                 return true;
             }
@@ -164,21 +165,8 @@ namespace Serial_Port_Assistant.Services
 
             try
             {
-                // 移除空格和非十六进制字符
-                hexString = hexString.Replace(" ", "").Replace("-", "");
-                
-                if (hexString.Length % 2 != 0)
-                {
-                    ErrorOccurred?.Invoke(this, "十六进制字符串长度必须为偶数");
-                    return false;
-                }
-
-                byte[] bytes = new byte[hexString.Length / 2];
-                for (int i = 0; i < bytes.Length; i++)
-                {
-                    bytes[i] = Convert.ToByte(hexString.Substring(i * 2, 2), 16);
-                }
-
+                // 使用 HexConverter 工具类进行转换，更健壮
+                byte[] bytes = HexConverter.HexToBytes(hexString);
                 await SendBytesAsync(bytes);
                 return true;
             }
@@ -196,9 +184,10 @@ namespace Serial_Port_Assistant.Services
         private async Task SendBytesAsync(byte[] data)
         {
             if (_serialPort?.IsOpen != true)
-                throw new InvalidOperationException("串口未打开");
+                throw new InvalidOperationException("串口未打开或已关闭。");
 
-            await Task.Run(() => _serialPort.Write(data, 0, data.Length));
+            // 使用 BaseStream 的异步方法，这是推荐的做法
+            await _serialPort.BaseStream.WriteAsync(data, 0, data.Length);
         }
 
         /// <summary>
@@ -206,15 +195,18 @@ namespace Serial_Port_Assistant.Services
         /// </summary>
         private void OnDataReceived(object sender, SerialDataReceivedEventArgs e)
         {
+            if (_serialPort == null || !_serialPort.IsOpen) return;
+
             try
             {
-                if (_serialPort?.IsOpen == true && _serialPort.BytesToRead > 0)
+                // 循环读取，确保将缓冲区数据全部读出
+                int bytesToRead = _serialPort.BytesToRead;
+                if (bytesToRead > 0)
                 {
-                    byte[] buffer = new byte[_serialPort.BytesToRead];
-                    _serialPort.Read(buffer, 0, buffer.Length);
+                    byte[] buffer = new byte[bytesToRead];
+                    _serialPort.Read(buffer, 0, bytesToRead);
                     
-                    // 转换为字符串并触发事件
-                    string receivedData = Encoding.UTF8.GetString(buffer);
+                    string receivedData = Encoding.GetString(buffer);
                     DataReceived?.Invoke(this, receivedData);
                 }
             }
@@ -229,7 +221,7 @@ namespace Serial_Port_Assistant.Services
         /// </summary>
         private void OnErrorReceived(object sender, SerialErrorReceivedEventArgs e)
         {
-            ErrorOccurred?.Invoke(this, $"串口错误: {e.EventType}");
+            ErrorOccurred?.Invoke(this, $"串口硬件错误: {e.EventType}");
         }
 
         /// <summary>
@@ -237,12 +229,31 @@ namespace Serial_Port_Assistant.Services
         /// </summary>
         public void Dispose()
         {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
             if (!_disposed)
             {
-                ClosePortAsync().Wait();
+                if (disposing)
+                {
+                    // 释放托管资源
+                    if (_serialPort != null)
+                    {
+                        ClosePortAsync().Wait(); // 同步等待关闭完成
+                        _serialPort = null;
+                    }
+                }
+                // 释放非托管资源（如果有）
                 _disposed = true;
             }
-            GC.SuppressFinalize(this);
+        }
+
+        ~SerialPortService()
+        {
+            Dispose(false);
         }
     }
 }
